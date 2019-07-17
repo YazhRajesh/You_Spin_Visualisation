@@ -1,0 +1,38 @@
+<h2>You Spin Me Round</h2>
+<p>by <a href="https://sites.google.com/uic.edu/yazhinirajesh/home">Yazhini Priyadharshini Rajesh</a></p>
+<p>In this project we are going to take a look at data about the relative strength and damage from tornadoes across the state and across the last 65 years. <a href="http://www.spc.noaa.gov/wcm/index.html#data"> Taken From this website</a>.
+</p>
+<p>
+<a href="http://www.spc.noaa.gov/wcm/data/SPC_severe_database_description.pdf">About the data</a> The data is about 7MB total for the entire US for the last 65 years covering about 62,000 tornadoes for the entire US over that period, but only about 2,500 in IL
+
+The data we are going to focus on includes:
+    date
+    time
+    state
+    magnitude
+    injuries
+    fatalities
+    loss
+    start lat + lon
+    end lat  + lon
+    length
+    width
+    FIPS county codes. 
+</p>
+<h3>The Data</h3>
+<p>This application visualizes the following:</p>
+<ul>
+  <li><b>About the Project: </b> The user can choose any state from a list and the year from the list</li>
+  <li><b>Tornadoes- Yearly </b> This tab shows how the tornadoes were situated overall on a yearly basis. It includes a pie chart which shows the percentage as a basis for comparison</li>
+  <li><b> Tornadoes- Monthly </b> This tab shows how the tornadoes were situated overall on the basis for months. This tab can be used to predict where there is a particular season triggers the presence of tornadoes</li>
+  <li><b>Tornadoes- StateWise </b> Now that we have seen the yearly and monthly overview of tornadoes we next look at the state wise trends of tornadoes</li>
+  <li><b>Tornadoes- CountyWise </b> We then look at the countywise overview. By selecting the state from the sidebar panel we can view the bar graph and a table of the overview for the counties.</li>
+  <li><b>Map- State Wise</b> State Wise map is a Choloropleth map of the selected state which shows the death, loss, magnitude and injuries of the state on the map of the state</li>
+  <li><b>Map- Tornadoes </b> Last but not the least, we can view a map of the USA which shows the intensity and the locations of tornadoes in the US on a yearly basis. We can choose our preference of magnitude and what parameter is in question</li>
+</ul>
+
+<h3>Application</h3>
+<p>This application is written in <em>R</em>, using the <em>shiny dashboard</em> framework. Graphs use <em>ggplot2</em> and <em>plotly</em>; the map view uses <em>leaflet</em> and location data from <em>addTiles</em>. In addition, <em>tidyr</em> and <em>jpeg</em> libraries are used to support corresponding functions.</p>
+<p>It is designed to be viewed as a dashboard with no scrolling. Select the items on the left navigation pane to switch between various views. We can also minimize the sidepad by using the minimize button on top next to the title. </p>
+<p> Items in the legend may be clicked to show/hide the item from the graph. Double-click on a legend item to show only that item. Hover over chart elements for more information about the point, bar or pie.</p>
+<p> I have included the presence of functions and reactives to make the code more interactive and for faster processing. </p>

@@ -1,0 +1,512 @@
+#Load annual files from directory
+temp1 = list.files(pattern="^an.*csv")
+allData2 <- lapply(temp1, read.csv)
+allData3 <- do.call(rbind, allData2)
+mapdata <- read.csv(file = "aqs_sites.csv",header = TRUE, sep = ",")
+#HourlyAndWeekly data
+temp = list.files(pattern="^hourly_4.*csv")
+allDataHourly <- lapply(temp, read.csv, stringsAsFactors = FALSE)
+allDataHourly1 <- do.call(rbind, allDataHourly1)
+temp = list.files(pattern="^hourly_8.*csv")
+allDataHourly2 <- lapply(temp, read.csv, stringsAsFactors = FALSE)
+allDataHourly1 <- do.call(rbind, allDataHourly2)
+hourtemp <- read.csv(file= "hourly_TEMP_2018.csv", header = TRUE, sep= ",")
+hourwind <- read.csv(file= "hourly_WIND_2018.csv", header= TRUE, sep= ",")
+#Converting columns to character and numeric class
+allData1$Date <- as.Date(as.character(allData1$Date))
+allData1$Year <- format(allData1$Date,"%Y")
+allData1$Year <- as.numeric(allData1$Year)
+allData1$Month <- format(allData1$Date,"%B")
+colnames(allData1)[1:2] <- c("State","County")
+#Making a copy of original Dataframe
+allData4 <- allData3
+#Renaming column names
+colnames(allData3)[c(5:10)] <- c("Good","Moderate","Unhealthy(Sensitive)","Unhealthy","Very Unhealthy","Hazardous")
+colnames(allData3)[c(11:13)] <- c("Max AQI", "90th Percentile of AQI","Median AQI")
+colnames(allData3)[c(14:19)] <- c("CO","NO2","Ozone","SO2","PM2_5","PM10")
+#Making a copy of modified Dataframe
+allData5 <- allData3
+#Creating new column AQI Parameters and Days which has the aggregate days of all AQI parameters
+allData3Gather <- gather(allData3, "AQI Parameters", "Days", 5:10)
+#Creating new column Pollutants and Days which has the aggregate days of all Pollutants
+allData3Gather2 <- gather(allData3, "Pollutants", "Days", 14:19)
+#Creating new column Maxq and Values which has the aggregate of Max AQI, median and 90th Percentile of AQI
+allData3Gather3 <- gather(allData3,"Maxq", "Values", 11:13)
+#Creating new columns which has aggregate percentage of all pollutant types
+allData4$CO <- (allData4$Days.CO / allData4$Days.with.AQI)* 100
+allData4$NO2 <- (allData4$Days.NO2 / allData4$Days.with.AQI) *100
+allData4$Ozone <- (allData4$Days.Ozone / allData4$Days.with.AQI) *100
+allData4$SO2 <- (allData4$Days.SO2 / allData4$Days.with.AQI) * 100
+allData4$PM2_5 <- (allData4$Days.PM2.5 / allData4$Days.with.AQI) * 100
+allData4$PM_10 <- (allData4$Days.PM10 / allData4$Days.with.AQI) * 100
+allData4 <- allData4 %>% mutate_if(is.numeric, round, 2)
+allData4Gather <- gather(allData4,"PollutantsP","PValues",20:25)
+#allData4Gather <- allData4Gather[order(allData4Gather$PollutantsP,-allData4Gather$Values),]
+#Creating new columns which has aggregate percentage of all AQI types
+allData5$Good <- (allData5$Good / allData5$Days.with.AQI)* 100
+allData5$Moderate <- (allData5$Moderate / allData5$Days.with.AQI) *100
+allData5$`Unhealthy(Sensitive)` <- (allData5$`Unhealthy(Sensitive)` / allData5$Days.with.AQI) *100
+allData5$Unhealthy <- (allData5$Unhealthy / allData5$Days.with.AQI) * 100
+allData5$`Very Unhealthy` <- (allData5$`Very Unhealthy` / allData5$Days.with.AQI) * 100
+allData5$Hazardous <- (allData5$Hazardous / allData5$Days.with.AQI) * 100
+allData5 <- allData5 %>% mutate_if(is.numeric, round, 2)
+allData5Gather <- gather(allData5,"AQIP","AValues",5:10)
+#allData5Gather <- allData5Gather[order(allData5Gather$AQIP,-allData5Gather$Values),]
+#Combining AQIP and PollutantP
+combine <- cbind(allData4Gather[,c(1,2,3,20,21)],allData5Gather[,c(14,15)])
+#Dataframe for table
+tabledata <- allData1 %>%
+group_by(State,County, Year, Month) %>%
+summarize(Good = sum(Category == "Good"),
+Moderate = sum(Category == "Moderate"),
+Unhealthy_for_Sensitive_Group = sum(Category == "Unhealthy for Sensitive Groups"),
+Unhealthy = sum(Category == "Unhealthy"),
+Very_Unhealthy = sum(Category == "Very Unhealthy"),
+Hazardous = sum(Category == "Hazardous"))
+# Create the menu items to select the different years, states and counties
+years<-c(1990:2018)
+counties <- allData3[,2]
+pollutants<- c("44201", "42401", "42101", "42602", "88101", "88502", "81102")
+years1<-c(1990:2018)
+aqip <- c("Moderate" ,"Good" , "Unhealthy for Sensitive Groups", "Unhealthy", "Very Unhealthy","Hazardous","Ozone", "SO2", "CO", "NO2", "PM2.5", "PM10")
+# Dreate the shiny dashboard
+ui <- dashboardPage(
+dashboardHeader(title = "Project 2"),
+dashboardSidebar(disable = FALSE, collapsed = FALSE,
+selectInput("Year", "Select the year to visualize", years, selected = 2018),
+selectInput("State", "Select the State to visualize", states, selected = "Illinois"),
+selectInput("County", "Select the County to visualize", counties, selected = "Cook"),
+sidebarMenu(
+menuItem("About",tabName = "about"),
+menuItem("AQI Quality",tabName = "aqiquality"),
+menuItem("Compare Map",tabName = "comparemap"),
+menuItem("PollutantsinDetails", tabName="detail")
+)),
+dashboardBody(
+tabItems(
+tabItem("about", includeHTML("about.html")),
+tabItem("aqiquality",
+fluidRow(
+column(12,
+fluidRow(
+box(
+width = 18,
+status = "info",
+dataTableOutput("AQITable")
+),
+box(
+width=15,status = "info", plotlyOutput("AQImaxq")
+)
+)
+),
+column(5,
+fluidRow(
+box(
+width = 18,
+status = "info",
+plotlyOutput("AQIBarGraph"))))
+)
+),
+tabItem("comparemap",
+fluidRow(box(width=4, sliderInput("slider", "#observations frequency:", 1, 100, 1))),
+fluidRow(
+fluidRow(box(width = 4, selectInput("Year1", "Select the year to visualize", years1, selected = 2018, width="120px"),
+selectInput("aqip", "Select the AQI or Pollutant Type to visualize", aqip, selected = "Moderate", width="120px"))
+),
+width = 12, h1("Leaflet of USA"),leafletOutput("Map0", height = 400) )),
+tabItem("detail", fluidRow(box(width=4, selectInput("PollutantCode", "Select the pollutant code to visualize", pollutants, selected= "44201", width="120px"))),
+fluidRow(width=12, status= "info", plotlyOutput("PollutantDetailGraph")))
+)
+)
+)
+server <- function(input,output,session){
+observe({
+# Can use character(0) to remove all choices
+if (is.null(input$State))
+input$State <- character(0)
+a <- unique(as.character(allData1[allData1$State == input$State,2]))
+# Can also set the label and select items
+updateSelectInput(session, "County",
+choices = sort(a))
+})
+data1 <- reactive({
+df1 <- combine[combine$Year == input$Year1 & (combine$AQIP == input$aqip | combine$PollutantsP == input$aqip),]
+if(input$aqip %in% c("Moderate" ,"Good" , "Unhealthy for Sensitive Groups", "Unhealthy", "Very Unhealthy","Hazardous")){
+df1 <- df1%>%
+arrange(desc(AValues))
+}else{
+df1 <- df1%>%
+arrange(desc(PValues))
+}
+df1 <- head(df1,100)
+})
+output$AQITable <-
+renderDataTable(tabledata[tabledata$County == input$County & tabledata$State == input$State & tabledata$Year == input$Year ,4:10], pageLength = 12)
+output$AQIBarGraph  <- renderPlotly ({
+xlab = list(categoryorder = "array", categoryarray = c("January", "February", "March" ,"April","May" ,"June" ,"July" , "August" ,"September" ,"October" ,"November", "December" ))
+ylab = list(title = "", showticklabels = FALSE)
+plot_ly(data = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,],
+x = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,8],
+y = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,5],
+color = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,5],
+type="bar") %>%
+layout(title = paste("AQI types for", input$Year), barmode = "stack", xaxis = xlab, yaxis = ylab)
+})
+output$AQImaxq <- renderPlotly({
+plot_ly(data = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,],
+x = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,3],
+y = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,4],
+color = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,6] ,
+type="scatter",mode="lines+markers") %>%
+layout(title = paste("AQI over the year" , input$Year))
+})
+output$PollutantDetailGraph <- renderPlotly({
+plot_ly(data = allDataHourly1[allDataHourly1$State.Name == input$State & allDataHourly1$County.Name == input$County &
+allDataHourly1$Year == input$Year & allDataHourly1$Parameter.Code == input$PollutantCode ,],
+x = allDataHourly1[allDataHourly1$State == input$State & allDataHourly1$County == input$County & allDataHourly1$Year == input$Year,8],
+y = allDataHourly1[allDataHourly1$State == input$State & allDataHourly1$County == input$County & allDataHourly1$Year == input$Year,14],
+color = allDataHourly1[allDataHourly1$State == input$State & allDataHourly1$County == input$County & allDataHourly1$Year == input$Year,11] ,
+type="scatter",mode="lines+markers") %>%
+layout(title = paste("AQI over the year" , input$Year))
+})
+output$Map0 <- renderLeaflet({
+map <- leaflet()
+map <- addTiles(map)
+bins <- c("Moderate" ,"Good" , "Unhealthy for Sensitive Groups", "Unhealthy", "Very Unhealthy","Hazardous")
+pal <- colorBin("YlOrRd", domain = data1$AQIP, bins = bins)
+map <- setView(map, lng = mapdata[mapdata$County.Name == input$County & mapdata$State.Name == input$State,5][1], lat = mapdata[mapdata$County.Name == input$County & mapdata$State.Name == input$State,4][1], zoom = 2)
+map < addPolygons(fillColor = ~pal(density), weight = 2, opacity = 1,color = "white",dashArray = "3",fillOpacity = 0.7, highlight = highlightOptions(
+weight = 5,
+color = "#666",
+dashArray = "",
+fillOpacity = 0.7,
+bringToFront = TRUE))
+map <- addCircleMarkers(map, lng = mapdata[mapdata$County.Name == input$County & mapdata$State.Name == input$State,5][1], lat = mapdata[mapdata$County.Name == input$County & mapdata$State.Name == input$State,4][1], popup = input$County)
+map
+})
+}
+shinyApp(server = server, ui = ui)
+library(shiny)
+library(shinydashboard)
+library(devtools)
+library(shiny)
+library(shinydashboard)
+library(lubridate)
+library(DT)
+library(jpeg)
+library(grid)
+library(leaflet)
+library(scales)
+library(tidyr)
+library(plotly)
+library(magrittr)
+library(dplyr)
+library(pillar)
+library(tidyverse)
+library(ggplot2)
+library(readr)
+#Load daily files from directory
+temp = list.files(pattern="^daily.*csv")
+allData <- lapply(temp, read.csv, stringsAsFactors = FALSE)
+allData1 <- do.call(rbind, allData)
+allData1 <- allData1[,c(1,2,5,6,7,8)]
+#Load annual files from directory
+temp1 = list.files(pattern="^an.*csv")
+allData2 <- lapply(temp1, read.csv)
+allData3 <- do.call(rbind, allData2)
+mapdata <- read.csv(file = "aqs_sites.csv",header = TRUE, sep = ",")
+#HourlyAndWeekly data
+temp = list.files(pattern="^hourly_4.*csv")
+allDataHourly <- lapply(temp, read.csv, stringsAsFactors = FALSE)
+allDataHourly1 <- do.call(rbind, allDataHourly1)
+temp = list.files(pattern="^hourly_8.*csv")
+allDataHourly2 <- lapply(temp, read.csv, stringsAsFactors = FALSE)
+allDataHourly1 <- do.call(rbind, allDataHourly2)
+hourtemp <- read.csv(file= "hourly_TEMP_2018.csv", header = TRUE, sep= ",")
+hourwind <- read.csv(file= "hourly_WIND_2018.csv", header= TRUE, sep= ",")
+#Converting columns to character and numeric class
+allData1$Date <- as.Date(as.character(allData1$Date))
+allData1$Year <- format(allData1$Date,"%Y")
+allData1$Year <- as.numeric(allData1$Year)
+allData1$Month <- format(allData1$Date,"%B")
+colnames(allData1)[1:2] <- c("State","County")
+#Making a copy of original Dataframe
+allData4 <- allData3
+#Renaming column names
+colnames(allData3)[c(5:10)] <- c("Good","Moderate","Unhealthy(Sensitive)","Unhealthy","Very Unhealthy","Hazardous")
+colnames(allData3)[c(11:13)] <- c("Max AQI", "90th Percentile of AQI","Median AQI")
+colnames(allData3)[c(14:19)] <- c("CO","NO2","Ozone","SO2","PM2_5","PM10")
+#Making a copy of modified Dataframe
+allData5 <- allData3
+#Creating new column AQI Parameters and Days which has the aggregate days of all AQI parameters
+allData3Gather <- gather(allData3, "AQI Parameters", "Days", 5:10)
+#Creating new column Pollutants and Days which has the aggregate days of all Pollutants
+allData3Gather2 <- gather(allData3, "Pollutants", "Days", 14:19)
+#Creating new column Maxq and Values which has the aggregate of Max AQI, median and 90th Percentile of AQI
+allData3Gather3 <- gather(allData3,"Maxq", "Values", 11:13)
+#Creating new columns which has aggregate percentage of all pollutant types
+allData4$CO <- (allData4$Days.CO / allData4$Days.with.AQI)* 100
+allData4$NO2 <- (allData4$Days.NO2 / allData4$Days.with.AQI) *100
+allData4$Ozone <- (allData4$Days.Ozone / allData4$Days.with.AQI) *100
+allData4$SO2 <- (allData4$Days.SO2 / allData4$Days.with.AQI) * 100
+allData4$PM2_5 <- (allData4$Days.PM2.5 / allData4$Days.with.AQI) * 100
+allData4$PM_10 <- (allData4$Days.PM10 / allData4$Days.with.AQI) * 100
+allData4 <- allData4 %>% mutate_if(is.numeric, round, 2)
+allData4Gather <- gather(allData4,"PollutantsP","PValues",20:25)
+#allData4Gather <- allData4Gather[order(allData4Gather$PollutantsP,-allData4Gather$Values),]
+#Creating new columns which has aggregate percentage of all AQI types
+allData5$Good <- (allData5$Good / allData5$Days.with.AQI)* 100
+allData5$Moderate <- (allData5$Moderate / allData5$Days.with.AQI) *100
+allData5$`Unhealthy(Sensitive)` <- (allData5$`Unhealthy(Sensitive)` / allData5$Days.with.AQI) *100
+allData5$Unhealthy <- (allData5$Unhealthy / allData5$Days.with.AQI) * 100
+allData5$`Very Unhealthy` <- (allData5$`Very Unhealthy` / allData5$Days.with.AQI) * 100
+allData5$Hazardous <- (allData5$Hazardous / allData5$Days.with.AQI) * 100
+allData5 <- allData5 %>% mutate_if(is.numeric, round, 2)
+allData5Gather <- gather(allData5,"AQIP","AValues",5:10)
+#allData5Gather <- allData5Gather[order(allData5Gather$AQIP,-allData5Gather$Values),]
+#Combining AQIP and PollutantP
+combine <- cbind(allData4Gather[,c(1,2,3,20,21)],allData5Gather[,c(14,15)])
+#Dataframe for table
+tabledata <- allData1 %>%
+group_by(State,County, Year, Month) %>%
+summarize(Good = sum(Category == "Good"),
+Moderate = sum(Category == "Moderate"),
+Unhealthy_for_Sensitive_Group = sum(Category == "Unhealthy for Sensitive Groups"),
+Unhealthy = sum(Category == "Unhealthy"),
+Very_Unhealthy = sum(Category == "Very Unhealthy"),
+Hazardous = sum(Category == "Hazardous"))
+# Create the menu items to select the different years, states and counties
+years<-c(1990:2018)
+counties <- allData3[,2]
+pollutants<- c("44201", "42401", "42101", "42602", "88101", "88502", "81102")
+years1<-c(1990:2018)
+aqip <- c("Moderate" ,"Good" , "Unhealthy for Sensitive Groups", "Unhealthy", "Very Unhealthy","Hazardous","Ozone", "SO2", "CO", "NO2", "PM2.5", "PM10")
+# Dreate the shiny dashboard
+ui <- dashboardPage(
+dashboardHeader(title = "Project 2"),
+dashboardSidebar(disable = FALSE, collapsed = FALSE,
+selectInput("Year", "Select the year to visualize", years, selected = 2018),
+selectInput("State", "Select the State to visualize", states, selected = "Illinois"),
+selectInsput("County", "Select the County to visualize", counties, selected = "Cook"),
+sidebarMenu(
+menuItem("About",tabName = "about"),
+menuItem("AQI Quality",tabName = "aqiquality"),
+menuItem("Compare Map",tabName = "comparemap"),
+menuItem("PollutantsinDetails", tabName="detail")
+)),
+dashboardBody(
+tabItems(
+tabItem("about", includeHTML("about.html")),
+tabItem("aqiquality",
+fluidRow(
+column(12,
+fluidRow(
+box(
+width = 18,
+status = "info",
+dataTableOutput("AQITable")
+),
+box(
+width=15,status = "info", plotlyOutput("AQImaxq")
+)
+)
+),
+column(5,
+fluidRow(
+box(
+width = 18,
+status = "info",
+plotlyOutput("AQIBarGraph"))))
+)
+),
+tabItem("comparemap",
+fluidRow(box(width=4, sliderInput("slider", "#observations frequency:", 1, 100, 1))),
+fluidRow(
+fluidRow(box(width = 4, selectInput("Year1", "Select the year to visualize", years1, selected = 2018, width="120px"),
+selectInput("aqip", "Select the AQI or Pollutant Type to visualize", aqip, selected = "Moderate", width="120px"))
+),
+width = 12, h1("Leaflet of USA"),leafletOutput("Map0", height = 400) )),
+tabItem("detail", fluidRow(box(width=4, selectInput("PollutantCode", "Select the pollutant code to visualize", pollutants, selected= "44201", width="120px"))),
+fluidRow(width=12, status= "info", plotlyOutput("PollutantDetailGraph")))
+)
+)
+)
+server <- function(input,output,session)
+{
+observe({
+# Can use character(0) to remove all choices
+if (is.null(input$State))
+input$State <- character(0)
+a <- unique(as.character(allData1[allData1$State == input$State,2]))
+# Can also set the label and select items
+updateSelectInput(session, "County",
+choices = sort(a))
+})
+data1 <- reactive({
+df1 <- combine[combine$Year == input$Year1 & (combine$AQIP == input$aqip | combine$PollutantsP == input$aqip),]
+if(input$aqip %in% c("Moderate" ,"Good" , "Unhealthy for Sensitive Groups", "Unhealthy", "Very Unhealthy","Hazardous")){
+df1 <- df1%>%
+arrange(desc(AValues))
+}else{
+df1 <- df1%>%
+arrange(desc(PValues))
+}
+df1 <- head(df1,100)
+})
+output$AQITable <-
+renderDataTable(tabledata[tabledata$County == input$County & tabledata$State == input$State & tabledata$Year == input$Year ,4:10], pageLength = 12)
+output$AQIBarGraph  <- renderPlotly ({
+xlab = list(categoryorder = "array", categoryarray = c("January", "February", "March" ,"April","May" ,"June" ,"July" , "August" ,"September" ,"October" ,"November", "December" ))
+ylab = list(title = "", showticklabels = FALSE)
+plot_ly(data = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,],
+x = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,8],
+y = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,5],
+color = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,5],
+type="bar") %>%
+layout(title = paste("AQI types for", input$Year), barmode = "stack", xaxis = xlab, yaxis = ylab)
+})
+output$AQImaxq <- renderPlotly({
+plot_ly(data = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,],
+x = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,3],
+y = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,4],
+color = allData1[allData1$State == input$State & allData1$County == input$County & allData1$Year == input$Year,6] ,
+type="scatter",mode="lines+markers") %>%
+layout(title = paste("AQI over the year" , input$Year))
+})
+output$PollutantDetailGraph <- renderPlotly({
+plot_ly(data = allDataHourly1[allDataHourly1$State.Name == input$State & allDataHourly1$County.Name == input$County &
+allDataHourly1$Year == input$Year & allDataHourly1$Parameter.Code == input$PollutantCode ,],
+x = allDataHourly1[allDataHourly1$State == input$State & allDataHourly1$County == input$County & allDataHourly1$Year == input$Year,8],
+y = allDataHourly1[allDataHourly1$State == input$State & allDataHourly1$County == input$County & allDataHourly1$Year == input$Year,14],
+color = allDataHourly1[allDataHourly1$State == input$State & allDataHourly1$County == input$County & allDataHourly1$Year == input$Year,11] ,
+type="scatter",mode="lines+markers") %>%
+layout(title = paste("AQI over the year" , input$Year))
+})
+output$Map0 <- renderLeaflet({
+map <- leaflet()
+map <- addTiles(map)
+bins <- c("Moderate" ,"Good" , "Unhealthy for Sensitive Groups", "Unhealthy", "Very Unhealthy","Hazardous")
+pal <- colorBin("YlOrRd", domain = data1$AQIP, bins = bins)
+map <- setView(map, lng = mapdata[mapdata$County.Name == input$County & mapdata$State.Name == input$State,5][1], lat = mapdata[mapdata$County.Name == input$County & mapdata$State.Name == input$State,4][1], zoom = 2)
+map < addPolygons(fillColor = ~pal(density), weight = 2, opacity = 1,color = "white",dashArray = "3",fillOpacity = 0.7, highlight = highlightOptions(
+weight = 5,
+color = "#666",
+dashArray = "",
+fillOpacity = 0.7,
+bringToFront = TRUE))
+map <- addCircleMarkers(map, lng = mapdata[mapdata$County.Name == input$County & mapdata$State.Name == input$State,5][1], lat = mapdata[mapdata$County.Name == input$County & mapdata$State.Name == input$State,4][1], popup = input$County)
+map
+})
+}
+shinyApp(server = server, ui = ui)
+library(devtools)
+library(shiny)
+library(shinydashboard)
+library(lubridate)
+library(DT)
+library(jpeg)
+library(grid)
+library(leaflet)
+library(scales)
+library(tidyr)
+library(plotly)
+library(magrittr)
+library(dplyr)
+library(pillar)
+library(tidyverse)
+library(ggplot2)
+library(readr)
+library(devtools)
+library(shiny)
+library(shinydashboard)
+library(lubridate)
+library(DT)
+library(jpeg)
+library(grid)
+library(leaflet)
+library(scales)
+library(tidyr)
+library(plotly)
+library(magrittr)
+library(dplyr)
+library(pillar)
+library(tidyverse)
+library(ggplot2)
+library(readr)
+library(shiny); runApp('Downloads/P2/newapp.R')
+devtools::install_local("aot-client-r-master")
+devtools::install_github("UbranCCD-UChicago/aot-client-r")
+devtools::install_github("UrbanCCD-UChicago/aot-client-r")
+url <- "https://api.arrayofthings.org/api/observations"
+s <- download.file(url, "/var/tmp/obs", quiet = FALSE)
+shiny::runApp('Desktop/Project')
+runApp('Desktop/Project')
+runApp('Desktop/Project')
+runApp('Desktop/Project')
+runApp('Desktop/Project')
+runApp('Desktop/Project')
+runApp('Desktop/Project')
+runApp('Desktop/Project')
+runApp('Desktop/Project')
+runApp('Desktop/Project')
+df <- read.csv(file = "1950-2017_all_tornadoes.csv",header = TRUE, sep = ",")
+setwd("/Users/yazhinipriyadharshini/Desktop/Project3")
+setwd("/Users/yazhinipriyadharshini/Desktop/Project")
+df <- read.csv(file = "1950-2017_all_tornadoes.csv",header = TRUE, sep = ",")
+groupdata <- df[df$date == "1950-01-03", ]
+hourlydata <- rowsum(groupdata$mag, group - groupdata$time, reorder= TRUE)
+hourlydata <- rowsum(groupdata$mag, group = groupdata$time, reorder= TRUE)
+hourlydata <- rowsum(groupdata$mag, group - groupdata$time, reorder= TRUE)
+hourlydata <- rowsum(groupdata$mag, group = groupdata$time, reorder= TRUE)
+groupdata <- df[df$date == "1950-01-03", ]
+mag <- rowsum(groupdata$mag, group = groupdata$time, reorder= TRUE)
+dailydata <- data.frame(mag)
+dailydata$time <- unique(df$time)
+states <- unique(dailydata$st)
+p <- ggplot(dailydata[dailydata$yr == "1950", ], aes(x= st, y= mag )) + geom_bar(stat= "identity", fill = "red")
+View(groupdata)
+View(df)
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+df2<- df[df$date== "1950-01-03", ]
+mag<- rowsum(df2$mag, group= df2$mo, reorder = TRUE)
+inj <-rowsum(df2$inj, group= df2$mo, reorder = TRUE)
+fat <-rowsum(df2$fat, group= df2$mo, reorder = TRUE)
+loss <-rowsum(df2$loss, group= df2$mo, reorder = TRUE)
+hourlydata <- data.frame(mag,inj,fat,loss)
+mag<- rowsum(df2$mag, group= df2$time, reorder = TRUE)
+inj <-rowsum(df2$inj, group= df2$time, reorder = TRUE)
+fat <-rowsum(df2$fat, group= df2$time, reorder = TRUE)
+loss <-rowsum(df2$loss, group= df2$time, reorder = TRUE)
+hourlydata <- data.frame(mag,inj,fat,loss)
+runApp()
+mag<- rowsum(df$mag, group= df2$time, reorder = TRUE)
+inj <-rowsum(df$inj, group= df2$time, reorder = TRUE)
+fat <-rowsum(df$fat, group= df2$time, reorder = TRUE)
+loss <-rowsum(df$loss, group= df2$time, reorder = TRUE)
+hourlydata <- data.frame(mag,inj,fat,loss)
+mag<- rowsum(df$mag, group= df2$date, reorder = TRUE)
+inj <-rowsum(df$inj, group= df2$date, reorder = TRUE)
+fat <-rowsum(df$fat, group= df2$date, reorder = TRUE)
+loss <-rowsum(df$loss, group= df2$date, reorder = TRUE)
+hourlydata <- data.frame(mag,inj,fat,loss)
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()
+runApp()

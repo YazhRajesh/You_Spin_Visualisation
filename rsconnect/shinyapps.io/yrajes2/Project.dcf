@@ -1,0 +1,12 @@
+name: Project
+title: Project
+username:
+account: yrajes2
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 851519
+bundleId: 2011375
+url: https://yrajes2.shinyapps.io/Project/
+when: 1555301660.72358
+asMultiple: FALSE
+asStatic: FALSE
